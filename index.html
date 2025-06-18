@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Kubernetes Pod & Deployment Tutorial</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Fira Code', 'Monaco', 'Menlo', monospace;
+            background: linear-gradient(45deg, #0f0f23, #1a1a3a, #2d1b69);
+            background-size: 400% 400%;
+            animation: gradientShift 8s ease infinite;
+            min-height: 100vh;
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 20px #64ffda, 0 0 30px #64ffda, 0 0 40px #64ffda; }
+            to { text-shadow: 0 0 10px #64ffda, 0 0 20px #64ffda, 0 0 30px #64ffda; }
+        }
+
+        .header h1 {
+            font-size: 3em;
+            color: #64ffda;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .header p {
+            font-size: 1.3em;
+            color: #a0aec0;
+            opacity: 0.9;
+        }
+
+        .step {
+            background: rgba(45, 55, 72, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid #4a5568;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            display: none;
+            animation: slideInCyber 0.6s ease-out;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .step.active {
+            display: block;
+        }
+
+        @keyframes slideInCyber {
+            from {
+                opacity: 0;
+                transform: translateY(30px) rotateX(10deg);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) rotateX(0);
+            }
+        }
+
+        .step h2 {
+            color: #64ffda;
+            margin-bottom: 20px;
+            font-size: 2em;
+            border-bottom: 2px solid #64ffda;
+            padding-bottom: 10px;
+            text-shadow: 0 0 10px rgba(100, 255, 218, 0.5);
+        }
+
+        .step h3 {
+            color: #ffd700;
+            margin: 25px 0 15px 0;
+            font-size: 1.4em;
+        }
+
+        .step p, .step li {
+            line-height: 1.7;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+            color: #e2e8f0;
+        }
+
+        .terminal {
+            background: #1a202c;
+            border: 1px solid #4a5568;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Fira Code', monospace;
+            overflow-x: auto;
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .terminal::before {
+            content: "● ● ●";
+            position: absolute;
+            top: 8px;
+            left: 15px;
+            color: #ff5f56;
+            font-size: 12px;
+        }
+
+        .terminal-header {
+            color: #64ffda;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-top: 15px;
+            border-bottom: 1px solid #4a5568;
+            padding-bottom: 8px;
+        }
+
+        .command {
+            color: #64ffda;
+            font-weight: bold;
+        }
+
+        .output {
+            color: #e2e8f0;
+            white-space: pre-wrap;
+            margin: 10px 0;
+        }
+
+        .prompt {
+            color: #ffd700;
+        }
+
+        .execute-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .execute-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .execute-btn:active {
+            transform: translateY(0);
+        }
+
+        .yaml-block {
+            background: #2d3748;
+            border: 1px solid #4a5568;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            font-family: 'Fira Code', monospace;
+            overflow-x: auto;
+            border-left: 4px solid #64ffda;
+        }
+
+        .yaml-block .key {
+            color: #64ffda;
+        }
+
+        .yaml-block .string {
+            color: #68d391;
+        }
+
+        .yaml-block .number {
+            color: #ffd700;
+        }
+
+        .highlight-box {
+            background: rgba(100, 255, 218, 0.1);
+            border: 1px solid #64ffda;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #64ffda;
+        }
+
+        .warning-box {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid #ffd700;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #ffd700;
+        }
+
+        .success-box {
+            background: rgba(104, 211, 145, 0.1);
+            border: 1px solid #68d391;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #68d391;
+        }
+
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 30px;
+            background: rgba(45, 55, 72, 0.9);
+            padding: 20px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .nav-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .nav-btn:disabled {
+            background: #4a5568;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .progress {
+            text-align: center;
+            color: #64ffda;
+            font-weight: bold;
+            font-size: 1.2em;
+            text-shadow: 0 0 10px rgba(100, 255, 218, 0.5);
+        }
+
+        .typing {
+            overflow: hidden;
+            border-right: 2px solid #64ffda;
+            white-space: nowrap;
+            animation: typing 2s steps(40, end), blink-caret 1s step-end infinite;
+        }
+
+        @keyframes typing {
+            from { width: 0; }
+            to { width: 100%; }
+        }
+
+        @keyframes blink-caret {
+            from, to { border-color: transparent; }
+            50% { border-color: #64ffda; }
+        }
+
+        .hidden-content {
+            display: none;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .hidden-content.show {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .step {
+                padding: 20px;
+            }
+            
+            .navigation {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Kubernetes Pods & Deployments</h1>
+            <p>Interactive hands-on simulation tutorial</p>
+        </div>
+
+        <!-- Step 1: Introduction to Pods -->
+        <div class="step active">
+            <h2>📦 Step 1: Understanding Pods - The Foundation</h2>
+            <p>Welcome! Let's start with <strong>Pods</strong> - the smallest deployable unit in Kubernetes. A Pod wraps around one or more containers and provides shared resources.</p>
+            
+            <h3>What's a Pod?</h3>
+            <p>A Pod is like a wrapper that contains your application container. It provides:</p>
+            <ul>
+                <li>🌐 <strong>Shared networking</strong> - All containers share the same IP</li>
+                <li>💾 <strong>Shared storage</strong> - Volumes are shared between containers</li>
+                <li>📋 <strong>Shared configuration</strong> - Environment and specifications</li>
+            </ul>
+
+            <div class="yaml-block">
+<span class="key">apiVersion:</span> <span class="string">v1</span>
+<span class="key">kind:</span> <span class="string">Pod</span>
+<span class="key">metadata:</span>
+  <span class="key">name:</span> <span class="string">nginx-pod</span>
+<span class="key">spec:</span>
+  <span class="key">containers:</span>
+  - <span class="key">name:</span> <span class="string">nginx</span>
+    <span class="key">image:</span> <span class="string">nginx:1.14.2</span>
+    <span class="key">ports:</span>
+    - <span class="key">containerPort:</span> <span class="number">80</span>
+            </div>
+
+            <div class="highlight-box">
+                <strong>🎯 Key Point:</strong> Think of a Pod as a "house" where your app lives. The containers inside share everything - like roommates sharing the same address, internet connection, and storage space.
+            </div>
+        </div>
+
+        <!-- Step 2: Create Your First Pod -->
+        <div class="step">
+            <h2>🔨 Step 2: Create Your First Pod</h2>
+            <p>Let's create a simple nginx Pod and see it in action!</p>
+
+            <div class="terminal">
+                <div class="terminal-header">Terminal Simulation</div>
+                <div class="prompt">kubectl@cluster:~$ </div>
+                <div class="command" id="step2-cmd1">kubectl run nginx-pod --image=nginx:1.14.2 --port=80</div>
+                <div class="hidden-content" id="step2-output1">
+                    <div class="output">pod/nginx-pod created</div>
+                </div>
+            </div>
+
+            <button class="execute-btn" onclick="executeCommand('step2', 1)">Execute Command</button>
+
+            <div class="hidden-content" id="step2-content2">
+                <p>Great! Now let's check if our Pod is running:</p>
+                
+                <div class="terminal">
+                    <div class="prompt">kubectl@cluster:~$ </div>
+                    <div class="command" id="step2-cmd2">kubectl get pods</div>
+                    <div class="hidden-content" id="step2-output2">
+                        <div class="output">NAME        READY   STATUS    RESTARTS   AGE
+nginx-pod   1/1     Running   0          30s</div>
+                    </div>
+                </div>
+
+                <button class="execute-btn" onclick="executeCommand('step2', 2)">Check Pod Status</button>
+            </div>
+
+            <div class="hidden-content" id="step2-content3">
+                <div class="success-box">
+                    <strong>✅ Success!</strong> Your Pod is running. Notice the STATUS shows "Running" and READY shows "1/1" meaning 1 container is ready out of 1 total.
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: The Problem with Pods -->
+        <div class="step">
+            <h2>⚠️ Step 3: Why Pods Alone Aren't Enough</h2>
+            <p>Let's see what happens when a Pod crashes. This demonstrates why we need something more robust.</p>
+
+            <h3>Simulate a Pod Crash</h3>
+            <div class="terminal">
+                <div class="terminal-header">Simulating Pod Deletion</div>
+                <div class="prompt">kubectl@cluster:~$ </div>
+                <div class="command" id="step3-cmd1">kubectl delete pod nginx-pod</div>
+                <div class="hidden-content" id="step3-output1">
+                    <div class="output">pod "nginx-pod" deleted</div>
+                </div>
+            </div>
+
+            <button class="execute-btn" onclick="executeCommand('step3', 1)">Delete Pod</button>
+
+            <div class="hidden-content" id="step3-content2">
+                <p>Now check what happens:</p>
+                
+                <div class="terminal">
+                    <div class="prompt">kubectl@cluster:~$ </div>
+                    <div class="command" id="step3-cmd2">kubectl get pods</div>
+                    <div class="hidden-content" id="step3-output2">
+                        <div class="output">No resources found in default namespace.</div>
+                    </div>
+                </div>
+
+                <button class="execute-btn" onclick="executeCommand('step3', 2)">Check Pods</button>
+            </div>
+
+            <div class="hidden-content" id="step3-content3">
+                <div class="warning-box">
+                    <strong>❌ Problem!</strong> The Pod is gone forever. In production, this means:
+                    <ul>
+                        <li>🔥 Your app is down</li>
+                        <li>😰 No automatic recovery</li>
+                        <li>📞 Users can't access your service</li>
+                        <li>💸 Revenue loss</li>
+                    </ul>
+                </div>
+
+                <p><strong>Solution:</strong> We need <span style="color: #64ffda;">Deployments</span> for auto-healing and scaling!</p>
+            </div>
+        </div>
+
+        <!-- Step 4: Create a Deployment -->
+        <div class="step">
+            <h2>🛡️ Step 4: Deployments - Auto-Healing & Scaling</h2>
+            <p>A Deployment manages ReplicaSets, which manage Pods. It provides auto-healing, scaling, and rolling updates.</p>
+
+            <div class="yaml-block">
+<span class="key">apiVersion:</span> <span class="string">apps/v1</span>
+<span class="key">kind:</span> <span class="string">Deployment</span>
+<span class="key">metadata:</span>
+  <span class="key">name:</span> <span class="string">nginx-deployment</span>
+<span class="key">spec:</span>
+  <span class="key">replicas:</span> <span class="number">3</span>
+  <span class="key">selector:</span>
+    <span class="key">matchLabels:</span>
+      <span class="key">app:</span> <span class="string">nginx</span>
+  <span class="key">template:</span>
+    <span class="key">metadata:</span>
+      <span class="key">labels:</span>
+        <span class="key">app:</span> <span class="string">nginx</span>
+    <span class="key">spec:</span>
+      <span class="key">containers:</span>
+      - <span class="key">name:</span> <span class="string">nginx</span>
+        <span class="key">image:</span> <span class="string">nginx:1.14.2</span>
+        <span class="key">ports:</span>
+        - <span class="key">containerPort:</span> <span class="number">80</span>
+            </div>
+
+            <div class="terminal">
+                <div class="terminal-header">Creating Deployment</div>
+                <div class="prompt">kubectl@cluster:~$ </div>
+                <div class="command" id="step4-cmd1">kubectl apply -f deployment.yaml</div>
+                <div class="hidden-content" id="step4-output1">
+                    <div class="output">deployment.apps/nginx-deployment created</div>
+                </div>
+            </div>
+
+            <button class="execute-btn" onclick="executeCommand('step4', 1)">Create Deployment</button>
+
+            <div class="hidden-content" id="step4-content2">
+                <p>Let's see what the Deployment created:</p>
+                
+                <div class="terminal">
+                    <div class="prompt">kubectl@cluster:~$ </div>
+                    <div class="command" id="step4-cmd2">kubectl get deployments</div>
+                    <div class="hidden-content" id="step4-output2">
+                        <div class="output">NAME               READY   UP-TO-DATE   AVAILABLE   AGE
+nginx-deployment   3/3     3            3           45s</div>
+                    </div>
+                </div>
+
+                <button class="execute-btn" onclick="executeCommand('step4', 2)">Check Deployment</button>
+
+                <div class="terminal">
+                    <div class="prompt">kubectl@cluster:~$ </div>
+                    <div class="command" id="step4-cmd3">kubectl get replicasets</div>
+                    <div class="hidden-content" id="step4-output3">
+                        <div class="output">NAME                          DESIRED   CURRENT   READY   AGE
+nginx-deployment-xyz-abc      3         3         3       45s</div>
+                    </div>
+                </div>
+
+                <button class="execute-btn" onclick="executeCommand('step4', 3)">Check ReplicaSet</button>
+
+                <div class="terminal">
+                    <div class="prompt">kubectl@cluster:~$ </div>
+                    <div class="command" id="step4-cmd4">kubectl get pods -o wide</div>
+                    <div class="hidden-content" id="step4-output4">
+                        <div class="output">NAME                            READY   STATUS    RESTARTS   AGE
+nginx-deployment-xyz-abc-1      1/1     Running   0          45s
+nginx-deployment-xyz-abc-2      1/1     Running   0          45s  
+nginx-deployment-xyz-abc-3      1/1     Running   0          45s</div>
+                    </div>
+                </div>
+
+                <button class="execute-btn" onclick="executeCommand('step4', 4)">Check Pods</button>
+            </div>
+
+            <div class="hidden-content" id="step4-content5">
+                <div class="success-box">
+                    <strong>🎉 Perfect!</strong> The Deployment created:
+                    <ul>
+                        <li>1 ReplicaSet (manages pod replicas)</li>
+                        <li>3 Pods (as specified by replicas: 3)</li>
+                        <li>All with cluster IPs and kube-proxy load balancing</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 5: Test Auto-Healing -->
+        <div class="step">
+            <h2>🔄 Step 5: Test Auto-Healing Magic</h2>
+            <p>Now let's see the real magic - when a Pod crashes, the ReplicaSet automatically creates a new one!</p>
+
+            <div class="terminal">
+                <div class="terminal-header">Simulating Pod Crash</div>
+                <div class="prompt">kubectl@cluster:~$ </div>
+                <div class="command" id="step5-cmd1">kubectl delete pod nginx-deployment-xyz-abc-1</div>
+                <div class="hidden-content" id="step5-output1">
+                    <div class="output">pod "nginx-deployment-xyz-abc-1" deleted</div>
+                </div>
+            </div>
+
+            <button class="execute-btn" onclick="executeCommand('step5', 1)">Delete a Pod</button>
+
+            <div class="hidden-content" id="step5-content2">
+                <p>Watch the magic happen:</p>
+                
+                <div class="terminal">
+                    <div class="prompt">kubectl@cluster:~$ </div>
+                    <div class="command" id="step5-cmd2">kubectl get pods -w</div>
+                    <div class="hidden-content" id="step5-output2">
+                        <div class="output">NAME                            READY   STATUS    RESTARTS   AGE
+nginx-deployment-xyz-abc-2      1/1     Running   0          2m
+nginx-deployment-xyz-abc-3      1/1     Running   0          2m
+nginx-deployment-xyz-abc-4      1/1     Running   0          5s</div>
+                    </div>
+                </div>
+
+                <button class="execute-btn" onclick="executeCommand('step5', 2)">Watch Pods</button>
+            </div>
+
+            <div class="hidden-content" id="step5-content3">
+                <div class="success-box">
+                    <strong>🔮 Auto-Healing in Action!</strong> The ReplicaSet noticed we only had 2 pods but needed 3, so it immediately created a new pod (nginx-deployment-xyz-abc-4). Zero downtime!
+                </div>
+
+                <div class="highlight-box">
+                    <strong>🧠 This is ReplicaSet magic:</strong>
+                    <ul>
+                        <li>Desired state: 3 pods</li>
+                        <li>Actual state: 2 pods (after deletion)</li>
+                        <li>Action: Create 1 new pod immediately</li>
+                        <li>Result: Back to 3 pods running</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 6: Test Scaling -->
+        <div class="step">
+            <h2>📈 Step 6: Test Auto-Scaling</h2>
+            <p>Let's scale our deployment up and down to handle different traffic loads.</p>
+
+            <h3>Scale Up (Traffic Spike!)</h3>
+            <div class="terminal">
+                <div class="terminal-header">Scaling Up for Black Friday 🛒</div>
+                <div class="prompt">kubectl@cluster:~$ </div>
+                <div class="command" id="step6-cmd1">kubectl scale deployment nginx-deployment --replicas=5</div>
+                <div class="hidden-content" id="step6-output1">
+                    <div class="output">deployment.apps/nginx-deployment scaled</div>
+                </div>
+            </div>
+
+            <button class="execute-btn" onclick="executeCommand('step6', 1)">Scale to 5 Pods</button>
+
+            <div class="hidden-content" id="step6-content2">
+                <div class="terminal">
+                    <div class="prompt">kubectl@cluster:~$ </div>
+                    <div class="command" id="step6-cmd2">kubectl get pods</div>
+                    <div class="hidden-content" id="step6-output2">
+                        <div class="output">NAME                            READY   STATUS    RESTARTS   AGE
+nginx-deployment-xyz-abc-2      1/1     Running   0          5m
+nginx-deployment-xyz-abc-3      1/1     Running   0          5m
+nginx-deployment-xyz-abc-4      1/1     Running   0          3m
+nginx-deployment-xyz-abc-5      1/1     Running   0          10s
+nginx-deployment-xyz-abc-6      1/1     Running   0          10s</div>
+                    </div>
+                </div>
+
+                <button class="execute-btn" onclick="executeCommand('step6', 2)">Check New Pods</button>
+            </div>
+
+            <div class="hidden-content" id="step6-content3">
+                <h3>Scale Down (Traffic Calms Down)</h3>
+                <div class="terminal">
+                    <div class="prompt">kubectl@cluster:~$ </div>
+                    <div class="command" id="step6-cmd3">kubectl scale deployment nginx-deployment --replicas=2</div>
+                    <div class="hidden-content" id="step6-output3">
+                        <div class="output">deployment.apps/nginx-deployment scaled</div>
+                    </div>
+                </div>
+
+                <button class="execute-btn" onclick="executeCommand('step6', 3)">Scale Down to 2</button>
+
+                <div class="terminal">
+                    <div class="prompt">kubectl@cluster:~$ </div>
+                    <div class="command" id="step6-cmd4">kubectl get pods</div>
+                    <div class="hidden-content" id="step6-output4">
+                        <div class="output">NAME                            READY   STATUS        RESTARTS   AGE
+nginx-deployment-xyz-abc-2      1/1     Running       0          6m
+nginx-deployment-xyz-abc-3      1/1     Running       0          6m  
+nginx-deployment-xyz-abc-4      1/1     Terminating   0          4m
+nginx-deployment-xyz-abc-5      1/1     Terminating   0          1m
+nginx-deployment-xyz-abc-6      1/1     Terminating   0          1m</div>
+                    </div>
+                </div>
+
+                <button class="execute-btn" onclick="executeCommand('step6', 4)">Watch Scale Down</button>
+            </div>
+
+            <div class="hidden-content" id="step6-content5">
+                <div class="success-box">
+                    <strong>🎯 Perfect Scaling!</strong> ReplicaSet terminated 3 pods gracefully to match the desired state of 2 replicas. Note the "Terminating" status - Kubernetes shuts down pods gracefully.
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 7: Understanding ReplicaSets -->
+        <div class="step">
+            <h2>🔄 Step 7: ReplicaSets - The Controller Behind the Magic</h2>
+            <p>Let's understand what a ReplicaSet actually does. It's the controller that ensures the desired number of pods are always running.</p>
+
+            <div class="highlight-box">
+                <strong>🧠 ReplicaSet Logic:</strong>
+                <ol>
+                    <li>Check current number of pods</li>
+                    <li>Compare with desired replicas</li>
+                    <li>If less → Create new pods</li>
+                    <li>If more → Delete excess pods</li>
+                    <li>Repeat every few seconds</li>
+                </ol>
+            </div>
+
+            <div class="terminal">
+                <div class="terminal-header">Inspecting ReplicaSet Details</div>
+                <div class="prompt">kubectl@cluster:~$ </div>
+                <div class="command" id="step7-cmd1">kubectl describe replicaset nginx-deployment-xyz-abc</div>
+                <div class="hidden-content" id="step7-output1">
+                    <div class="output">Name:           nginx-deployment-xyz-abc
+Namespace:      default
+Selector:       app=nginx,pod-template-hash=xyz-abc
+Labels:         app=nginx
+Annotations:    deployment.kubernetes.io/desired-replicas: 2
+Replicas:       2 current / 2 desired
+Pods Status:    2 Running / 0 Waiting / 0 Succeeded / 0 Failed
+Pod Template:
+  Labels:  app=nginx
+  Containers:
+   nginx:
+    Image:        nginx:1.14.2
+    Port:         80/TCP
+Events:
+  Type    Reason            Age   From                   Message
+  ----    ------            ----  ----                   -------
+  Normal  SuccessfulCreate  7m    replicaset-controller  Created pod: nginx-deployment-xyz-abc-2
+  Normal  SuccessfulCreate  7m    replicaset-controller  Created pod: nginx-deployment-xyz-abc-3</div>
+                </div>
+            </div>
+
+            <button class="execute-btn" onclick="executeCommand('step7', 1)">Inspect ReplicaSet</button>
+
+            <div class="hidden-content" id="step7-content2">
+                <p>Notice the key information:</p>
+                <ul>
+                    <li><strong>Selector:</strong> How it finds pods to manage (app=nginx)</li>
+                    <li><strong>Replicas:</strong> 2 current / 2 desired (perfect match!)</li>
+                    <li><strong>Events:</strong> Shows the creation history</li>
+                </ul>
+
+                <div class="warning-box">
+                    <strong>⚠️ Important:</strong> ReplicaSets handle scaling (replicas count) but deployments handle updates. When you update your image, the Deployment creates a NEW ReplicaSet and gradually replaces the old one.
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 8: Deployment vs ReplicaSet vs Pod -->
+        <div class="step">
+            <h2>🎯 Step 8: The Hierarchy - Deployment → ReplicaSet → Pod</h2>
+            <p>Let's understand the relationship between these Kubernetes objects:</p>
+
+            <div class="highlight-box">
+                <strong>📊 The Control Hierarchy:</strong>
+                <br><br>
+                <strong>You</strong> → Create <strong>Deployment</strong><br>
+                ↓<br>
+                <strong>Deployment</strong> → Creates <strong>ReplicaSet</strong><br>
+                ↓<br>
+                <strong>ReplicaSet</strong> → Creates <strong>Pods</strong>
+            </div>
+
+            <div class="terminal">
+                <div class="terminal-header">See the Full Hierarchy</div>
+                <div class="prompt">kubectl@cluster:~$ </div>
+                <div class="command" id="step8-cmd1">kubectl get all</div>
+                <div class="hidden-content" id="step8-output1">
+                    <div class="output">NAME                                   READY   STATUS    RESTARTS   AGE
+pod/nginx-deployment-xyz-abc-2         1/1     Running   0          10m
+pod/nginx-deployment-xyz-abc-3         1/1     Running   0          10m
+
+NAME                               READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/nginx-deployment   2/2     2            2           15m
+
+NAME                                         DESIRED   CURRENT   READY   AGE
+replicaset.apps/nginx-deployment-xyz-abc    2         2         2       15m</div>
+                </div>
+            </div>
+
+            <button class="execute-btn" onclick="executeCommand('step8', 1)">Show All Objects</button>
+
+            <div class="hidden-content" id="step8-content2">
+                <h3>🎯 Interview Questions - You're Ready!</h3>
+                
+                <div class="success-box">
+                    <strong>Q: What's the difference between a Pod, ReplicaSet, and Deployment?</strong><br><br>
+                    
+                    <strong>Pod:</strong> The smallest unit - wraps containers, no auto-healing<br>
+                    <strong>ReplicaSet:</strong> Manages multiple identical pods, ensures desired count<br>
+                    <strong>Deployment:</strong> Manages ReplicaSets, handles updates and rollbacks
+                </div>
+
+                <div class="success-box">
+                    <strong>Q: Why use Deployments instead of Pods?</strong><br><br>
+                    
+                    Deployments provide:<br>
+                    • Auto-healing (replace crashed pods)<br>
+                    • Auto-scaling (adjust to load)<br>
+                    • Rolling updates (zero-downtime deployments)<br>
+                    • Rollback capabilities<br>
+                    • Production-ready management
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 9: Clean Up -->
+        <div class="step">
+            <h2>🧹 Step 9: Clean Up Resources</h2>
+            <p>Good practice: always clean up your resources when done!</p>
+
+            <div class="terminal">
+                <div class="terminal-header">Cleanup</div>
+                <div class="prompt">kubectl@cluster:~$ </div>
+                <div class="command" id="step9-cmd1">kubectl delete deployment nginx-deployment</div>
+                <div class="hidden-content" id="step9-output1">
+                    <div class="output">deployment.apps "nginx-deployment" deleted</div>
+                </div>
+            </div>
+
+            <button class="execute-btn" onclick="executeCommand('step9', 1)">Delete Deployment</button>
+
+            <div class="hidden-content" id="step9-content2">
+                <div class="terminal">
+                    <div class="prompt">kubectl@cluster:~$ </div>
+                    <div class="command" id="step9-cmd2">kubectl get all</div>
+                    <div class="hidden-content" id="step9-output2">
+                        <div class="output">NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+service/kubernetes   ClusterIP   10.96.0.1    &lt;none&gt;        443/TCP   30d</div>
+                    </div>
+                </div>
+
+                <button class="execute-btn" onclick="executeCommand('step9', 2)">Verify Cleanup</button>
+            </div>
+
+            <div class="hidden-content" id="step9-content3">
+                <div class="success-box">
+                    <strong>✅ Perfect Cleanup!</strong> When you delete a Deployment, it automatically deletes:
+                    <ul>
+                        <li>The ReplicaSet it created</li>
+                        <li>All Pods managed by that ReplicaSet</li>
+                    </ul>
+                    This is the cascading deletion feature of Kubernetes.
+                </div>
+
+                <div style="text-align: center; margin-top: 30px; padding: 30px; background: rgba(100, 255, 218, 0.1); border-radius: 15px; border: 2px solid #64ffda;">
+                    <h3 style="color: #64ffda;">🎉 Congratulations! You've Mastered Kubernetes Basics!</h3>
+                    <p style="color: #e2e8f0; margin: 15px 0;">You now understand Pods, Deployments, ReplicaSets, and the magic of auto-healing and auto-scaling!</p>
+                    <p style="color: #ffd700; font-weight: bold;">Ready for production Kubernetes! 🚀</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <button class="nav-btn" id="prevBtn" onclick="changeStep(-1)">← Previous</button>
+            <div class="progress">
+                <span id="currentStep">1</span> of <span id="totalSteps">9</span>
+            </div>
+            <button class="nav-btn" id="nextBtn" onclick="changeStep(1)">Next →</button>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        const totalSteps = 9;
+
+        function showStep(stepNumber) {
+            // Hide all steps
+            document.querySelectorAll('.step').forEach(step => {
+                step.classList.remove('active');
+            });
+            
+            // Show current step
+            document.querySelectorAll('.step')[stepNumber - 1].classList.add('active');
+            
+            // Update navigation
+            document.getElementById('currentStep').textContent = stepNumber;
+            document.getElementById('prevBtn').disabled = stepNumber === 1;
+            document.getElementById('nextBtn').disabled = stepNumber === totalSteps;
+            
+            // Update button text for last step
+            if (stepNumber === totalSteps) {
+                document.getElementById('nextBtn').textContent = 'Complete! 🎉';
+            } else {
+                document.getElementById('nextBtn').textContent = 'Next →';
+            }
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function changeStep(direction) {
+            const newStep = currentStep + direction;
+            if (newStep >= 1 && newStep <= totalSteps) {
+                currentStep = newStep;
+                showStep(currentStep);
+            }
+        }
+
+        function executeCommand(stepId, commandNumber) {
+            const outputElement = document.getElementById(`${stepId}-output${commandNumber}`);
+            const contentElement = document.getElementById(`${stepId}-content${commandNumber + 1}`);
+            
+            if (outputElement) {
+                outputElement.classList.add('show');
+                
+                // Add typing animation to command output
+                setTimeout(() => {
+                    if (contentElement) {
+                        contentElement.classList.add('show');
+                    }
+                }, 1000);
+            }
+        }
+
+        // Initialize
+        showStep(1);
+
+        // Keyboard navigation
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'ArrowLeft' && currentStep > 1) {
+                changeStep(-1);
+            } else if (event.key === 'ArrowRight' && currentStep < totalSteps) {
+                changeStep(1);
+            }
+        });
+    </script>
+</body>
+</html>
